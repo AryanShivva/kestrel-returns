@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kestrel returns risk</title>
+<style>
+body{font-family:system-ui,Arial,sans-serif;margin:0;background:#f5f6f8;color:#1b1f24}
+header{background:#14385c;color:#fff;padding:14px 24px}main{display:flex;flex-wrap:wrap;gap:20px;padding:20px;max-width:1100px;margin:auto}
+.card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px #0002;flex:1 1 360px}
+label{display:block;font-size:12px;margin-top:8px;color:#555}input,select{width:100%;padding:6px;box-sizing:border-box}
+button{margin-top:14px;padding:10px 18px;background:#14385c;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:15px}
+.big{font-size:44px;font-weight:700}.pill{display:inline-block;padding:4px 10px;border-radius:12px;color:#fff;font-weight:600}
+.high{background:#c0392b}.elevated{background:#e08e0b}.normal{background:#2e8b57}
+li{margin:6px 0}.up{color:#c0392b}.down{color:#2e8b57}.note{background:#fff6dd;padding:8px;border-radius:6px;font-size:13px;margin-top:8px}
+.err{background:#fde8e8;padding:8px;border-radius:6px}small{color:#666}
+</style></head><body>
+<header><b>Kestrel Home</b> &middot; Returns risk before dispatch</header>
+<main>
+<div class="card"><h3>Order</h3>
+<label>Example <select id="ex" onchange="loadEx()"><option value="0">Typical order</option><option value="1">Risky: COD, 9-day promise, repeat returner</option><option value="2">Shield member, cash on delivery</option></select></label>
+<div id="f"></div><button onclick="go()">Score this order</button></div>
+<div class="card"><h3>Result</h3><div id="out"><small>Fill the order and press Score.</small></div></div>
+</main>
+<script>
+const fields=[["order_placed_at","text"],["customer_id","text"],["shield_member","sel:Y,N"],["sku","text"],["sales_channel","sel:app,web,marketplace,partner_outlet"],["payment_mode","sel:prepaid_upi,prepaid_card,cod,emi"],["discount_pct","number"],["qty","number"],["order_value_inr","number"],["promised_delivery_days","number"],["delivery_pincode","text"],["is_gift","sel:N,Y"],["customer_prior_orders","number"],["customer_prior_returns","number"],["delivery_note","text"]];
+const ex=[{order_placed_at:"2026-07-14 11:20",customer_id:"",shield_member:"N",sku:"KH-IC-02",sales_channel:"app",payment_mode:"prepaid_upi",discount_pct:8,qty:1,order_value_inr:2759,promised_delivery_days:4,delivery_pincode:"440019",is_gift:"N",customer_prior_orders:1,customer_prior_returns:0,delivery_note:"Ring twice"},
+{order_placed_at:"2026-07-14 23:05",customer_id:"",shield_member:"N",sku:"KH-RV-02",sales_channel:"marketplace",payment_mode:"cod",discount_pct:22,qty:1,order_value_inr:17159,promised_delivery_days:9,delivery_pincode:"400151",is_gift:"Y",customer_prior_orders:4,customer_prior_returns:2,delivery_note:""},
+{order_placed_at:"2026-07-15 09:00",customer_id:"",shield_member:"Y",sku:"KH-WP-02",sales_channel:"web",payment_mode:"cod",discount_pct:12,qty:1,order_value_inr:13199,promised_delivery_days:6,delivery_pincode:"560001",is_gift:"N",customer_prior_orders:3,customer_prior_returns:0,delivery_note:""}];
+const f=document.getElementById("f");
+fields.forEach(([k,t])=>{let h=`<label>${k}</label>`;if(t.startsWith("sel:"))h+=`<select id="${k}">${t.slice(4).split(",").map(o=>`<option>${o}</option>`).join("")}</select>`;else h+=`<input id="${k}" type="${t}">`;f.insertAdjacentHTML("beforeend",h)});
+function loadEx(){const e=ex[+document.getElementById("ex").value];for(const k in e)document.getElementById(k).value=e[k]}
+loadEx();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function go(){const rec={};fields.forEach(([k])=>rec[k]=document.getElementById(k).value);
+ const o=document.getElementById("out");o.innerHTML="Scoring...";
+ try{const r=await fetch("/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rec)});const d=await r.json();
+ if(!r.ok){o.innerHTML=`<div class="err">${esc(d.error||"Something went wrong")}</div>`;return}
+ o.innerHTML=`<div class="big">${(d.return_risk*100).toFixed(0)}%</div><small>chance this order is returned (typical order: ${(d.typical_risk*100).toFixed(0)}%)</small><br><br>
+ <span class="pill ${d.risk_band}">${esc(d.risk_band)} risk</span> <b>${esc(d.action.replaceAll("_"," "))}</b>
+ <p>${esc(d.message)}</p><p>Expected saving from a call: <b>Rs ${d.expected_saving_rs}</b></p><h4>Why</h4><ul>${d.reasons.map(x=>`<li class="${x.pushes}">${x.pushes=="up"?"&#9650;":"&#9660;"} ${esc(x.text)}</li>`).join("")}</ul>
+ ${d.data_notes.map(n=>`<div class="note">${esc(n)}</div>`).join("")}<p><small>${esc(d.caveat)}</small></p>`;
+ }catch(e){o.innerHTML=`<div class="err">Service not reachable. Is it running?</div>`}}
+</script></body></html>

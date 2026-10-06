@@ -1,0 +1,7 @@
+data/
+*.csv
+!predictions.csv
+__pycache__/
+.venv/
+
+!evidence/*.csv
